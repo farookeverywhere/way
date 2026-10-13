@@ -199,7 +199,15 @@
       align-items: flex-end;
       padding: 14px;
       min-height: 180px;
+      cursor: pointer;
+      text-align: left;
+      color: inherit;
+      font: inherit;
     }
+
+    .talent-card:hover img { transform: scale(1.04); }
+
+    .talent-card img { transition: transform 0.3s ease; }
 
     .talent-card img {
       position: absolute;
@@ -365,6 +373,65 @@
       margin: 0;
       font-size: 1.1rem;
       line-height: 1.6;
+    }
+
+    .artist-modal-card {
+      width: min(720px, 100%);
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .artist-profile-image {
+      display: block;
+      width: 100%;
+      height: min(52vh, 380px);
+      object-fit: cover;
+      background: #111;
+      filter: grayscale(0.2) contrast(1.05);
+    }
+
+    .artist-profile-image[hidden] { display: none; }
+
+    .artist-profile-content { padding: 22px; }
+
+    .artist-profile-role {
+      margin: 0 0 8px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 0.7rem;
+    }
+
+    .artist-profile-name {
+      margin: 0 0 14px;
+      font-size: clamp(1.8rem, 7vw, 3rem);
+      line-height: 1;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+    }
+
+    .artist-profile-description {
+      margin: 0;
+      color: var(--muted);
+      white-space: pre-wrap;
+    }
+
+    .artist-profile-link {
+      display: inline-block;
+      margin-top: 20px;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      font-size: 0.72rem;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 4px;
+    }
+
+    .artist-profile-link[hidden] { display: none; }
+
+    .artist-card:focus-visible {
+      outline: 2px solid var(--text);
+      outline-offset: 3px;
     }
 
     .admin {
@@ -639,6 +706,22 @@
     </div>
   </div>
 
+  <div class="modal" id="artistModal" aria-modal="true" role="dialog" aria-labelledby="artistProfileName">
+    <article class="modal-card artist-modal-card">
+      <img class="artist-profile-image" id="artistProfileImage" alt="" hidden />
+      <div class="artist-profile-content">
+        <div class="modal-head">
+          <span>Artist profile</span>
+          <button class="close-btn" id="closeArtistModal" type="button" aria-label="Close artist profile">✕</button>
+        </div>
+        <p class="artist-profile-role" id="artistProfileRole"></p>
+        <h2 class="artist-profile-name" id="artistProfileName"></h2>
+        <p class="artist-profile-description" id="artistProfileDescription"></p>
+        <a class="artist-profile-link" id="artistProfileLink" target="_blank" rel="noopener noreferrer" hidden>Visit artist link ↗</a>
+      </div>
+    </article>
+  </div>
+
   <aside class="admin" id="adminPanel" aria-label="Admin panel">
     <div class="admin-head">
       <span>Admin • edit everything</span>
@@ -723,6 +806,7 @@
     const nowPlayingEl = document.getElementById('nowPlaying');
     const talentGrid = document.getElementById('talentGrid');
     const joinModal = document.getElementById('joinModal');
+    const artistModal = document.getElementById('artistModal');
     const adminPanel = document.getElementById('adminPanel');
     const adminBody = document.getElementById('adminBody');
     const adminStatus = document.getElementById('adminStatus');
@@ -747,8 +831,11 @@
       }
 
       artists.forEach((artist) => {
-        const card = document.createElement('div');
-        card.className = 'talent-card';
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'talent-card artist-card';
+        card.setAttribute('aria-label', `Open ${artist.name || 'artist'} profile`);
+        card.addEventListener('click', () => openArtistProfile(artist));
 
         if (artist.pfp) {
           const image = document.createElement('img');
@@ -1041,6 +1128,40 @@
       joinModal.classList.remove('open');
     }
 
+    function openArtistProfile(artist) {
+      const image = document.getElementById('artistProfileImage');
+      const role = document.getElementById('artistProfileRole');
+      const name = document.getElementById('artistProfileName');
+      const description = document.getElementById('artistProfileDescription');
+      const link = document.getElementById('artistProfileLink');
+
+      image.hidden = !artist.pfp;
+      image.src = artist.pfp || '';
+      image.alt = artist.pfp ? `${artist.name || 'Artist'} profile` : '';
+      role.textContent = artist.role || 'Artist';
+      name.textContent = artist.name || 'Artist';
+      description.textContent = artist.description || '';
+
+      let safeLink = '';
+      try {
+        const parsedLink = new URL(artist.link, window.location.href);
+        if (parsedLink.protocol === 'https:' || parsedLink.protocol === 'http:') {
+          safeLink = parsedLink.href;
+        }
+      } catch (error) {
+        safeLink = '';
+      }
+
+      link.hidden = !safeLink;
+      link.href = safeLink;
+      artistModal.classList.add('open');
+      document.getElementById('closeArtistModal').focus();
+    }
+
+    function closeArtistProfile() {
+      artistModal.classList.remove('open');
+    }
+
     playBtn.addEventListener('click', () => {
       if (!config.tracks.length) return;
       if (audio.paused) {
@@ -1089,6 +1210,7 @@
     document.getElementById('joinBtn').addEventListener('click', openJoinModal);
     document.getElementById('joinBtn2').addEventListener('click', openJoinModal);
     document.getElementById('closeModal').addEventListener('click', closeJoinModal);
+    document.getElementById('closeArtistModal').addEventListener('click', closeArtistProfile);
     document.getElementById('closeAdmin').addEventListener('click', closeAdmin);
     document.getElementById('saveBtn').addEventListener('click', saveConfig);
 
@@ -1101,6 +1223,17 @@
 
     joinModal.addEventListener('click', (event) => {
       if (event.target === joinModal) closeJoinModal();
+    });
+
+    artistModal.addEventListener('click', (event) => {
+      if (event.target === artistModal) closeArtistProfile();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeJoinModal();
+        closeArtistProfile();
+      }
     });
 
     let typed = '';
