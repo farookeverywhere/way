@@ -567,6 +567,49 @@
       display: grid;
     }
 
+    .track-details {
+      display: none;
+      gap: 10px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .track-editor.expanded .track-details { display: grid; }
+
+    .track-details input:not([type="file"]) {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 12px 10px;
+    }
+
+    .track-details input[type="file"] {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 9px;
+    }
+
+    .autoplay-toggle {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 4px 0 16px;
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+
+    .autoplay-toggle input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: #fff;
+    }
+
     .artist-details textarea {
       min-height: 100px;
       resize: vertical;
@@ -812,6 +855,7 @@
       tag: 'Only the realest.',
       join: 'dm farookeverywhere on discord',
       footer: 'No borders • no genre • just signal',
+      autoplay: true,
       artists: [
         { name: 'Artist 01', role: 'Producer', pfp: '', description: 'Signal-first artist with sharp drums and clean movement.', link: '', accent: '' },
         { name: 'Artist 02', role: 'Visual', pfp: '', description: 'Designs the mood and tone behind the network.', link: '', accent: '' },
@@ -822,6 +866,24 @@
     };
 
     const artistEditorExpanded = new Set();
+    const trackEditorExpanded = new Set();
+
+    function createTrackId() {
+      return window.crypto?.randomUUID?.() || `track-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function normalizeTrack(track) {
+      if (typeof track === 'string') {
+        return { id: createTrackId(), name: track, src: '', audioId: '' };
+      }
+
+      return {
+        id: track?.id || createTrackId(),
+        name: track?.name || 'New track',
+        src: track?.src || '',
+        audioId: track?.audioId || ''
+      };
+    }
 
     function normalizeArtist(artist) {
       if (typeof artist === 'string') {
@@ -845,13 +907,70 @@
         const parsed = raw ? JSON.parse(raw) : {};
         const merged = { ...defaultConfig, ...parsed };
         merged.artists = (merged.artists || []).map(normalizeArtist);
+        merged.tracks = (merged.tracks || []).map(normalizeTrack);
+        merged.autoplay = parsed.autoplay !== false;
         return merged;
       } catch (error) {
         return {
           ...defaultConfig,
-          artists: defaultConfig.artists.map(normalizeArtist)
+          artists: defaultConfig.artists.map(normalizeArtist),
+          tracks: defaultConfig.tracks.map(normalizeTrack)
         };
       }
+    }
+
+    function openTrackDatabase() {
+      return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+          reject(new Error('This browser does not support local audio storage'));
+          return;
+        }
+
+        const request = indexedDB.open('wtc-audio-files', 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains('tracks')) {
+            request.result.createObjectStore('tracks', { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(new Error('Could not open audio storage'));
+      });
+    }
+
+    async function saveTrackAudio(id, file) {
+      const database = await openTrackDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction('tracks', 'readwrite');
+        transaction.objectStore('tracks').put({ id, blob: file });
+        transaction.oncomplete = () => { database.close(); resolve(); };
+        transaction.onerror = () => { database.close(); reject(new Error('Could not save audio file')); };
+        transaction.onabort = () => { database.close(); reject(new Error('Audio save was cancelled')); };
+      });
+    }
+
+    async function readTrackAudio(id) {
+      const database = await openTrackDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction('tracks', 'readonly');
+        const request = transaction.objectStore('tracks').get(id);
+        request.onsuccess = () => {
+          const record = request.result;
+          database.close();
+          resolve(record?.blob || null);
+        };
+        request.onerror = () => { database.close(); reject(new Error('Could not load audio file')); };
+      });
+    }
+
+    async function deleteTrackAudio(id) {
+      if (!id) return;
+      const database = await openTrackDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = database.transaction('tracks', 'readwrite');
+        transaction.objectStore('tracks').delete(id);
+        transaction.oncomplete = () => { database.close(); resolve(); };
+        transaction.onerror = () => { database.close(); reject(new Error('Could not remove audio file')); };
+      });
     }
 
     function writeConfig(next) {
@@ -863,6 +982,8 @@
     let audio = new Audio();
     let currentProgress = 0;
     let currentSet = false;
+    let currentAudioObjectUrl = '';
+    let currentTrackLoad = 0;
 
     const trackSelect = document.getElementById('trackSelect');
     const playBtn = document.getElementById('playBtn');
@@ -942,7 +1063,7 @@
       tracks.forEach((track, index) => {
         const option = document.createElement('option');
         option.value = String(index);
-        option.textContent = track;
+        option.textContent = track.name;
         trackSelect.appendChild(option);
       });
 
@@ -951,7 +1072,7 @@
       }
 
       trackCountEl.textContent = `${String((currentTrack + 1)).padStart(2, '0')} / ${String(tracks.length || 0).padStart(2, '0')}`;
-      nowPlayingEl.textContent = tracks[currentTrack] || 'signal idle';
+      nowPlayingEl.textContent = tracks[currentTrack]?.name || 'signal idle';
     }
 
     function updateProgressUI() {
@@ -963,11 +1084,15 @@
       totalTimeEl.textContent = formatTime(total);
     }
 
-    function loadCurrentTrack() {
+    async function loadCurrentTrack() {
       const tracks = config.tracks || [];
+      const loadId = ++currentTrackLoad;
       if (!tracks.length) {
+        audio.pause();
         audio.removeAttribute('src');
         audio.load();
+        if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+        currentAudioObjectUrl = '';
         currentTimeEl.textContent = '0:00';
         totalTimeEl.textContent = '0:00';
         progressFill.style.width = '0%';
@@ -978,12 +1103,40 @@
       currentTrack = Math.min(currentTrack, tracks.length - 1);
       trackSelect.value = String(currentTrack);
       trackCountEl.textContent = `${String((currentTrack + 1)).padStart(2, '0')} / ${String(tracks.length).padStart(2, '0')}`;
-      nowPlayingEl.textContent = tracks[currentTrack];
+      const track = tracks[currentTrack];
+      nowPlayingEl.textContent = track.name;
 
-      const src = `./assets/${encodeURIComponent(tracks[currentTrack].toLowerCase().replace(/\s+/g, '-'))}.mp3`;
+      audio.pause();
+      if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
+      currentAudioObjectUrl = '';
+      let src = track.src || `./assets/${encodeURIComponent(track.name.toLowerCase().replace(/\s+/g, '-'))}.mp3`;
+      if (track.audioId) {
+        try {
+          const blob = await readTrackAudio(track.audioId);
+          if (loadId !== currentTrackLoad) return;
+          if (blob) {
+            currentAudioObjectUrl = URL.createObjectURL(blob);
+            src = currentAudioObjectUrl;
+          }
+        } catch (error) {
+          nowPlayingEl.textContent = `${track.name} • audio unavailable`;
+        }
+      }
+      if (loadId !== currentTrackLoad) return;
       audio.src = src;
       audio.load();
       updateProgressUI();
+    }
+
+    function attemptEntryAutoplay() {
+      if (!config.autoplay || !config.tracks.length) return;
+      audio.play().catch((error) => {
+        if (error.name === 'NotAllowedError') {
+          nowPlayingEl.textContent = `${config.tracks[currentTrack].name} • tap play to start`;
+        } else {
+          nowPlayingEl.textContent = `${config.tracks[currentTrack].name} • add an audio file`;
+        }
+      });
     }
 
     function render() {
@@ -1184,14 +1337,43 @@
       tracksLabel.textContent = 'Tracks';
       tracksWrap.appendChild(tracksLabel);
 
+      const autoplayLabel = document.createElement('label');
+      autoplayLabel.className = 'autoplay-toggle';
+      const autoplayInput = document.createElement('input');
+      autoplayInput.type = 'checkbox';
+      autoplayInput.checked = config.autoplay;
+      autoplayInput.addEventListener('change', (event) => {
+        config.autoplay = event.target.checked;
+      });
+      const autoplayText = document.createElement('span');
+      autoplayText.textContent = 'Try to play tracks on entry';
+      autoplayLabel.append(autoplayInput, autoplayText);
+      tracksWrap.appendChild(autoplayLabel);
+
       (config.tracks || []).forEach((track, index) => {
+        const trackBox = document.createElement('div');
+        trackBox.className = `artist-editor track-editor ${trackEditorExpanded.has(track.id) ? 'expanded' : ''}`;
         const row = document.createElement('div');
         row.className = 'field-row';
 
         const input = document.createElement('input');
-        input.value = track;
+        input.value = track.name;
+        input.placeholder = 'Track name';
         input.addEventListener('input', (event) => {
-          config.tracks[index] = event.target.value;
+          config.tracks[index].name = event.target.value;
+        });
+
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.type = 'button';
+        showMoreBtn.className = 'tiny-btn';
+        showMoreBtn.textContent = trackEditorExpanded.has(track.id) ? 'show less' : 'show more';
+        showMoreBtn.addEventListener('click', () => {
+          if (trackEditorExpanded.has(track.id)) {
+            trackEditorExpanded.delete(track.id);
+          } else {
+            trackEditorExpanded.add(track.id);
+          }
+          openAdmin();
         });
 
         const removeBtn = document.createElement('button');
@@ -1199,6 +1381,8 @@
         removeBtn.textContent = '✕';
         removeBtn.className = 'tiny-btn delete';
         removeBtn.addEventListener('click', () => {
+          deleteTrackAudio(track.id).catch(() => {});
+          trackEditorExpanded.delete(track.id);
           config.tracks.splice(index, 1);
           if (currentTrack >= config.tracks.length) {
             currentTrack = Math.max(0, config.tracks.length - 1);
@@ -1206,8 +1390,43 @@
           openAdmin();
         });
 
-        row.append(input, removeBtn);
-        tracksWrap.appendChild(row);
+        row.append(input, showMoreBtn, removeBtn);
+
+        const details = document.createElement('div');
+        details.className = 'track-details';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'audio/*';
+        fileInput.setAttribute('aria-label', `Upload audio for ${track.name}`);
+        fileInput.addEventListener('change', async (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          if (!file.type.startsWith('audio/')) {
+            adminStatus.textContent = 'choose an audio file';
+            return;
+          }
+
+          try {
+            await saveTrackAudio(track.id, file);
+            config.tracks[index].audioId = track.id;
+            openAdmin();
+            adminStatus.textContent = 'audio added - save to keep';
+          } catch (error) {
+            adminStatus.textContent = error.message || 'could not save audio';
+          }
+        });
+
+        const sourceInput = document.createElement('input');
+        sourceInput.value = track.src || '';
+        sourceInput.placeholder = 'Or paste an audio URL';
+        sourceInput.addEventListener('input', (event) => {
+          config.tracks[index].src = event.target.value;
+        });
+
+        details.append(fileInput, sourceInput);
+        trackBox.append(row, details);
+        tracksWrap.appendChild(trackBox);
       });
 
       const addTrackBtn = document.createElement('button');
@@ -1215,7 +1434,9 @@
       addTrackBtn.className = 'tiny-btn';
       addTrackBtn.textContent = '+ add track';
       addTrackBtn.addEventListener('click', () => {
-        config.tracks.push('New track');
+        const track = { id: createTrackId(), name: 'New track', src: '', audioId: '' };
+        config.tracks.push(track);
+        trackEditorExpanded.add(track.id);
         openAdmin();
       });
       tracksWrap.appendChild(addTrackBtn);
@@ -1313,15 +1534,19 @@
     playBtn.addEventListener('click', () => {
       if (!config.tracks.length) return;
       if (audio.paused) {
-        audio.play();
+        audio.play().catch(() => {
+          nowPlayingEl.textContent = 'audio unavailable - add a track file';
+        });
       } else {
         audio.pause();
       }
     });
 
-    trackSelect.addEventListener('change', (event) => {
+    trackSelect.addEventListener('change', async (event) => {
+      const wasPlaying = !audio.paused;
       currentTrack = Number(event.target.value) || 0;
-      loadCurrentTrack();
+      await loadCurrentTrack();
+      if (wasPlaying) audio.play().catch(() => {});
     });
 
     progressBar.addEventListener('click', (event) => {
@@ -1334,7 +1559,7 @@
 
     audio.addEventListener('play', () => {
       playBtn.textContent = '❚❚';
-      nowPlayingEl.textContent = config.tracks[currentTrack] || 'signal idle';
+      nowPlayingEl.textContent = config.tracks[currentTrack]?.name || 'signal idle';
     });
 
     audio.addEventListener('pause', () => {
@@ -1349,10 +1574,12 @@
       updateProgressUI();
     });
 
-    audio.addEventListener('ended', () => {
+    audio.addEventListener('ended', async () => {
       currentTrack = (currentTrack + 1) % Math.max(1, config.tracks.length || 1);
-      loadCurrentTrack();
-      audio.play();
+      await loadCurrentTrack();
+      audio.play().catch(() => {
+        nowPlayingEl.textContent = 'next track unavailable';
+      });
     });
 
     document.getElementById('joinBtn').addEventListener('click', openJoinModal);
@@ -1398,7 +1625,7 @@
     });
 
     render();
-    loadCurrentTrack();
+    loadCurrentTrack().then(attemptEntryAutoplay);
   </script>
 </body>
 </html>
