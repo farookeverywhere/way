@@ -1,242 +1,37 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>WTC Forever — Only the Realest.</title>
-<style>
-:root{--bg:#0a0a0a;--fg:#f2f2f2;--mute:#8a8a8a;--line:#262626;--acc:#e8ff3c;--card:#111;
-box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f5f5f2;--fg:#0a0a0a;--mute:#6b6b6b;--line:#d8d8d4;--acc:#0a0a0a;--card:#fff}}
-:root[data-theme="dark"]{--bg:#0a0a0a;--fg:#f2f2f2;--mute:#8a8a8a;--line:#262626;--acc:#e8ff3c;--card:#111}
-:root[data-theme="light"]{--bg:#f5f5f2;--fg:#0a0a0a;--mute:#6b6b6b;--line:#d8d8d4;--acc:#0a0a0a;--card:#fff}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Arial,sans-serif;min-height:100vh}
-.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
-#splash{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;cursor:pointer;transition:opacity .6s}
-#splash.hide{opacity:0;pointer-events:none}
-#splash .big{font-size:clamp(88px,26vw,280px);font-weight:900;letter-spacing:-.06em;line-height:.8}
-#splash .enter{border:1px solid var(--fg);padding:12px 22px;font-size:13px;letter-spacing:.2em;background:none;color:var(--fg);cursor:pointer}
-#splash .enter:hover{background:var(--fg);color:var(--bg)}
-header{display:flex;justify-content:space-between;align-items:center;padding:20px 5vw;border-bottom:1px solid var(--line)}
-header b{font-weight:900;letter-spacing:.04em}
-.hero{padding:10vh 5vw 8vh}
-.hero h1{margin:0;font-size:clamp(56px,15vw,200px);line-height:.88;letter-spacing:-.05em;font-weight:900;text-transform:uppercase}
-.hero h1 span{color:var(--acc)}
-.hero p{font-size:clamp(18px,2.4vw,28px);margin:28px 0 0}
-section{padding:6vh 5vw;border-top:1px solid var(--line)}
-section h2{margin:0 0 20px;font-weight:400}
-.talent{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
-.talent div{aspect-ratio:1;background:var(--card);border:1px solid var(--line);display:flex;align-items:flex-end;padding:14px}
-.player{background:var(--card);border:1px solid var(--line);padding:20px;max-width:640px}
-.player select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);padding:10px;font:inherit;margin:10px 0 18px}
-.ctrl{display:flex;align-items:center;gap:14px}
-.ctrl button{width:44px;height:44px;border-radius:50%;border:1px solid var(--fg);background:none;color:var(--fg);cursor:pointer;font-size:16px}
-.bar{flex:1;height:4px;background:var(--line);position:relative}
-.bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--acc)}
-.join{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
-.join button,.modal form button{background:var(--fg);color:var(--bg);border:0;padding:14px 22px;font-weight:700;letter-spacing:.1em;cursor:pointer}
-footer{padding:6vh 5vw 10vh;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
-.modal{position:fixed;inset:0;z-index:40;background:color-mix(in srgb,var(--bg) 92%,transparent);display:none;align-items:center;justify-content:center;padding:20px}
-.modal.open{display:flex}
-.modal .box{background:var(--card);border:1px solid var(--line);width:100%;max-width:480px;padding:24px;max-height:90vh;overflow:auto}
-.modal .top{display:flex;justify-content:space-between;margin-bottom:18px}
-.modal .top button{background:none;border:0;color:var(--mute);cursor:pointer;font:inherit;letter-spacing:.1em}
-.modal input,.modal textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);padding:11px;font:inherit;margin-bottom:12px}
+name: Deploy static site to Pages
 
-#splash{overflow:hidden}
-.scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(128,128,128,.09) 2px 3px);animation:flick .12s infinite}
-.scan::after{content:"";position:absolute;left:0;right:0;height:20%;background:linear-gradient(transparent,rgba(232,255,60,.14),transparent);animation:sweep 2.4s linear infinite}
-@keyframes sweep{from{top:-20%}to{top:110%}}
-@keyframes flick{50%{opacity:.75}}
-#splash .top{opacity:0;animation:fadein .6s .1s forwards}
-@keyframes fadein{to{opacity:1}}
-#splash .big{position:relative;display:flex}
-#splash .big span{display:inline-block;opacity:0;transform:translateY(60%) scale(1.8);filter:blur(26px);animation:slam .7s cubic-bezier(.2,.9,.2,1) forwards}
-#splash .big span:nth-child(1){animation-delay:.25s}
-#splash .big span:nth-child(2){animation-delay:.45s}
-#splash .big span:nth-child(3){animation-delay:.65s}
-@keyframes slam{to{opacity:1;transform:none;filter:none}}
-#splash .big::before,#splash .big::after{content:attr(data-t);position:absolute;left:0;top:0;opacity:0;mix-blend-mode:screen;pointer-events:none}
-#splash .big::before{color:#ff2d55;animation:g1 2.4s steps(1) 1.5s infinite}
-#splash .big::after{color:#18e0ff;animation:g2 2.4s steps(1) 1.5s infinite}
-@keyframes g1{0%,100%{opacity:0}4%{opacity:.85;transform:translate(-10px,2px);clip-path:inset(8% 0 62% 0)}8%{opacity:.85;transform:translate(8px,-3px);clip-path:inset(58% 0 12% 0)}12%{opacity:0}60%{opacity:.8;transform:translate(-6px,0);clip-path:inset(30% 0 40% 0)}64%{opacity:0}}
-@keyframes g2{0%,100%{opacity:0}5%{opacity:.85;transform:translate(10px,-2px);clip-path:inset(50% 0 20% 0)}9%{opacity:.85;transform:translate(-8px,3px);clip-path:inset(5% 0 70% 0)}13%{opacity:0}61%{opacity:.8;transform:translate(7px,0);clip-path:inset(65% 0 5% 0)}65%{opacity:0}}
-.lbar{width:min(300px,60vw);height:3px;background:var(--line)}
-.lbar i{display:block;height:100%;width:0;background:var(--acc)}
-#splash .enter{opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s,background .2s,color .2s}
-#splash.ready .enter{opacity:1;transform:none}
-#splash.ready .lbar,#splash.ready #ld{opacity:.4}
-#splash .big,#splash.leaving .big{transition:transform .9s cubic-bezier(.7,0,.2,1),filter .9s,opacity .9s}
-#splash.leaving .big{transform:scale(12);filter:blur(24px);opacity:0}
-#splash.leaving .mono,#splash.leaving .lbar,#splash.leaving .enter{opacity:0;transition:opacity .3s}
-#splash.hide{transition:opacity .5s}
-body.pre .hero>*,body.pre header{opacity:0;transform:translateY(40px)}
-.hero>*,header{transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
-.hero>*:nth-child(2){transition-delay:.15s}.hero>*:nth-child(3){transition-delay:.3s}
-@media (prefers-reduced-motion:reduce){#splash *,#splash *::before,#splash *::after{animation:none!important}#splash .big span{opacity:1;transform:none;filter:none}}
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-#adm{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);z-index:60;background:var(--card);border-left:1px solid var(--line);transform:translateX(105%);transition:transform .3s;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-#adm.open{transform:none}
-#adm .ah,#adm .af{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
-#adm .af{border-bottom:0;border-top:1px solid var(--line)}
-#admb{flex:1;overflow:auto;padding:16px}
-#admb label{display:block;margin-bottom:12px}
-#admb h3{margin:22px 0 10px;font-weight:400}
-#admb input:not([type=file]){width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);padding:10px;font:inherit;margin-top:5px}
-#admb .row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
-#admb .row input:not([type=file]){flex:1;min-width:130px;margin:0}
-#adm button{background:none;border:1px solid var(--line);color:var(--fg);padding:9px 12px;cursor:pointer;font:inherit}
-#adm .af button{background:var(--fg);color:var(--bg);font-weight:700;border:0}
-#adm .ah button{border:0;color:var(--mute)}
-.talent div{position:relative;overflow:hidden}
-.talent div img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.talent div span{position:relative;z-index:1}
-.talent div.has span{background:rgba(0,0,0,.6);color:#fff;padding:3px 8px}
-</style>
-</head>
-<body>
-<div id="splash" onclick="enter()">
-  <div class="scan"></div>
-  <div class="mono top" id="st">WAY TOO CLEAN · SIGNAL</div>
-  <div class="big" id="big" data-t="WTC"><span>W</span><span>T</span><span>C</span></div>
-  <div class="mono" id="ld">pulling signal... 0%</div>
-  <div class="lbar"><i id="lfill"></i></div>
-  <button class="enter" type="button">ENTER</button>
-  <div class="mono" id="sd">WayTooClean.World</div>
-</div>
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-<header><b id="hb">WTC</b><span class="mono" id="hs">WAY TOO CLEAN</span></header>
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
-<div class="hero">
-  <div class="mono" id="hk">WAY TOO CLEAN · WTC</div>
-  <h1 id="h1">Way<br>Too <span>Clean</span></h1>
-  <p id="tg">Only the realest.</p>
-</div>
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-<section>
-  <h2 class="mono">Talent</h2>
-  <div class="talent" id="talent"></div>
-</section>
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-<section>
-  <h2 class="mono" id="ph">wtc · select a track</h2>
-  <div class="player">
-    <div class="mono" id="count">01 / 03</div>
-    <select id="sel"></select>
-    <div class="ctrl">
-      <button id="play" type="button" aria-label="Play">▶</button>
-      <span class="mono" id="cur">0:00</span>
-      <div class="bar" id="bar" style="cursor:pointer"><i id="fill"></i></div>
-      <span class="mono" id="dur">0:00</span>
-    </div>
-    <div class="mono" id="nofile" style="margin-top:12px"></div>
-  </div>
-</section>
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
 
-<section class="join">
-  <div><div class="mono">join the network</div><h2 style="margin:6px 0 0;font-size:28px">Want to join?</h2></div>
-  <button type="button" id="jb" onclick="openM()">JOIN WTC →</button>
-</section>
-
-<footer>
-  <span class="mono" id="ft1">2026 © WTC — WAY TOO CLEAN</span>
-  <span class="mono" id="ft2">no borders · no genre · just signal</span>
-  <span class="mono" id="ft3">wtc · signal</span>
-</footer>
-
-<div class="modal" id="modal">
-  <div class="box">
-    <div class="top"><span class="mono" id="mt">Join WTC</span><button type="button" onclick="closeM()">✕ close</button></div>
-    <p id="jt" style="font-size:22px;margin:8px 0 4px">dm farookeverywhere on discord</p>
-  </div>
-</div>
-
-<div id="adm"><div class="ah"><span class="mono">admin · edit everything</span><button type="button" onclick="closeA()">✕ close</button></div><div id="admb"></div><div class="af"><span class="mono" id="amsg"></span><button type="button" onclick="save()">SAVE</button></div></div>
-<script>
-var DEF={dom:"WayTooClean.World",short:"WTC",long:"WAY TOO CLEAN",tag:"Only the realest.",join:"dm farookeverywhere on discord",foot:"no borders · no genre · just signal",
-artists:[{n:"Artist 01"},{n:"Artist 02"},{n:"Artist 03"},{n:"Artist 04"}],tracks:[{t:"Track One"},{t:"Track Two"},{t:"Track Three"}]};
-var cfg=JSON.parse(JSON.stringify(DEF)),$=function(i){return document.getElementById(i)};
-var dbNs=null,asNs=null,usNs=null,shownShort="",loadedSrc=null,cur=0,au=new Audio();
-function fmt(x){x=Math.floor(x||0);return Math.floor(x/60)+":"+("0"+(x%60)).slice(-2)}
-function trackSrc(){var t=cfg.tracks[cur];return t&&t.a?"/_blob/"+t.a:""}
-function loadTrack(){au.pause();loadedSrc=trackSrc();if(loadedSrc)au.src=loadedSrc;else au.removeAttribute("src");
-$("play").textContent="▶";$("cur").textContent="0:00";$("dur").textContent="0:00";$("fill").style.width="0";
-$("count").textContent=("0"+(cur+1)).slice(-2)+" / "+("0"+cfg.tracks.length).slice(-2);$("nofile").textContent=loadedSrc?"":(cfg.tracks.length?"no audio uploaded yet":"no tracks")}
-function render(){
-$("hb").textContent=cfg.short;$("hs").textContent=cfg.long;$("hk").textContent=cfg.long+" · "+cfg.short;
-var h=$("h1"),w=cfg.long.split(" ").filter(Boolean),last=w.pop();h.textContent="";
-w.forEach(function(x){h.appendChild(document.createTextNode(x));h.appendChild(document.createElement("br"))});
-var sp=document.createElement("span");sp.textContent=last||"";h.appendChild(sp);
-$("tg").textContent=cfg.tag;$("jt").textContent=cfg.join;$("mt").textContent="Join "+cfg.short;$("jb").textContent="JOIN "+cfg.short+" →";
-$("sd").textContent=cfg.dom;$("ft1").textContent="2026 © "+cfg.short+" — "+cfg.long+" is a non-registered or trademarked business under general copyright laws.";$("ft2").textContent=cfg.foot;$("ft3").textContent=cfg.short.toLowerCase()+" · signal";
-$("ph").textContent=cfg.short.toLowerCase()+" · select a track";$("st").textContent=cfg.long+" · SIGNAL";document.title=cfg.short+" Forever — "+cfg.tag;
-if(shownShort!==cfg.short){shownShort=cfg.short;var b=$("big");b.setAttribute("data-t",cfg.short);b.textContent="";
-cfg.short.split("").forEach(function(c,i){var e=document.createElement("span");e.textContent=c===" "?"\u00a0":c;e.style.animationDelay=(.25+.2*i)+"s";b.appendChild(e)})}
-var t=$("talent");t.textContent="";if(!cfg.artists.length){var e0=document.createElement("div");e0.className="mono";e0.textContent="—";t.appendChild(e0)}cfg.artists.forEach(function(a){var d=document.createElement("div");d.className="mono"+(a.p?" has":"");
-if(a.p){var im=document.createElement("img");im.alt="";im.src="/_blob/"+a.p;d.appendChild(im)}
-var sn=document.createElement("span");sn.textContent=a.n;d.appendChild(sn);t.appendChild(d)});
-var sel=$("sel");sel.textContent="";cfg.tracks.forEach(function(x,i){var o=document.createElement("option");o.value=i;o.textContent=x.t;sel.appendChild(o)});
-if(cur>=cfg.tracks.length)cur=Math.max(0,cfg.tracks.length-1);sel.value=cur;
-if(trackSrc()!==loadedSrc)loadTrack();else $("count").textContent=("0"+(cur+1)).slice(-2)+" / "+("0"+cfg.tracks.length).slice(-2);
-if(entered&&autoPending&&loadedSrc){autoPending=false;au.play().catch(function(){})}}
-$("sel").onchange=function(){cur=+this.value;loadTrack()};
-$("play").onclick=function(){if(!loadedSrc)return;if(au.paused){au.play().catch(function(){});}else au.pause()};
-au.onplay=function(){$("play").textContent="❚❚"};au.onpause=function(){$("play").textContent="▶"};
-au.onloadedmetadata=function(){$("dur").textContent=fmt(au.duration)};
-au.ontimeupdate=function(){$("cur").textContent=fmt(au.currentTime);$("fill").style.width=(au.duration?au.currentTime/au.duration*100:0)+"%"};
-au.onended=function(){if(cur<cfg.tracks.length-1){cur++;$("sel").value=cur;loadTrack();au.play().catch(function(){})}else loadTrack()};
-$("bar").onclick=function(e){if(!au.duration)return;var r=this.getBoundingClientRect();au.currentTime=(e.clientX-r.left)/r.width*au.duration};
-var autoPending=true;
-render();
-if(window.claude&&claude.use){
-claude.use("db").then(function(d){if(!d)return;dbNs=d;d.doc("site/config").onSnapshot(function(sn){if(sn.exists){var x=sn.data();cfg=Object.assign(JSON.parse(JSON.stringify(DEF)),x);render()}},function(){})}).catch(function(){});
-claude.use("assets").then(function(a){asNs=a}).catch(function(){});
-claude.use("user").then(function(u){usNs=u}).catch(function(){});}
-/* admin */
-var draft=null,kb="";
-addEventListener("keydown",function(e){if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName||""))return;if(!e.key||e.key.length!==1)return;kb=(kb+e.key.toLowerCase()).slice(-16);if(kb==="waytoocleanadmin"){kb="";openA()}});
-function msg(m){$("amsg").textContent=m}
-function openA(){draft=JSON.parse(JSON.stringify(cfg));drawA();msg("");$("adm").classList.add("open");
-if(usNs)usNs.canEdit().then(function(ok){if(!ok)msg("view only — saving needs owner/editor access")}).catch(function(){})}
-function closeA(){$("adm").classList.remove("open")}
-function mk(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
-function upAudio(file){var ext=(file.name.split(".").pop()||"").toLowerCase();
-var alt=(ext==="webm"||ext==="ogg"||ext==="opus")?"video/webm":"video/mp4";
-return asNs.upload(file).catch(function(){return asNs.upload(file,{type:alt})})}
-function drawA(){var r=$("admb");r.textContent="";
-[["Splash domain line","dom"],["Short name","short"],["Full name","long"],["Tagline","tag"],["Join popup text","join"],["Footer line","foot"]].forEach(function(f){
-var l=mk("label","mono",f[0]),i=mk("input");i.value=draft[f[1]];i.oninput=function(){draft[f[1]]=i.value};l.appendChild(i);r.appendChild(l)});
-r.appendChild(mk("h3","mono","Artists"));
-draft.artists.forEach(function(a,i){var row=mk("div","row"),inp=mk("input");inp.value=a.n;inp.oninput=function(){a.n=inp.value};
-var pf=mk("input");pf.type="file";pf.accept="image/*";pf.hidden=true;
-var pb=mk("button",null,a.p?"change pfp":"add pfp");pb.onclick=function(){pf.click()};
-pf.onchange=function(){var file=pf.files[0];if(!file)return;if(!asNs){msg("uploads unavailable here");return}
-pb.textContent="uploading…";asNs.upload(file).then(function(res){a.p=res.id;pb.textContent="pfp ✓";msg("hit SAVE to publish changes")}).catch(function(e){pb.textContent="failed — retry";msg((e&&e.code?e.code+": ":"")+((e&&e.message)||"upload failed"))})};
-var x=mk("button",null,"✕");x.onclick=function(){draft.artists.splice(i,1);drawA()};row.appendChild(inp);row.appendChild(pb);row.appendChild(pf);row.appendChild(x);r.appendChild(row)});
-var aa=mk("button",null,"+ add artist");aa.onclick=function(){draft.artists.push({n:"New artist"});drawA()};r.appendChild(aa);
-r.appendChild(mk("h3","mono","Tracks"));
-draft.tracks.forEach(function(t,i){var row=mk("div","row"),inp=mk("input");inp.value=t.t;inp.oninput=function(){t.t=inp.value};
-var f=mk("input");f.type="file";f.accept="audio/*";f.hidden=true;
-var up=mk("button",null,t.a?"replace audio":"upload audio");up.onclick=function(){f.click()};
-f.onchange=function(){var file=f.files[0];if(!file)return;if(!asNs){msg("uploads unavailable here");return}
-up.textContent="uploading…";upAudio(file).then(function(res){t.a=res.id;up.textContent="uploaded ✓";msg("hit SAVE to publish changes")}).catch(function(e){up.textContent="failed — retry";msg((e&&e.code?e.code+": ":"")+((e&&e.message)||"upload failed"))})};
-var x=mk("button",null,"✕");x.onclick=function(){draft.tracks.splice(i,1);drawA()};
-row.appendChild(inp);row.appendChild(up);row.appendChild(f);row.appendChild(x);r.appendChild(row)});
-var at=mk("button",null,"+ add track");at.onclick=function(){draft.tracks.push({t:"New track"});drawA()};r.appendChild(at)}
-function save(){if(!dbNs){msg("saving unavailable — open the published page signed in");return}
-var d=JSON.parse(JSON.stringify(draft));msg("saving…");
-dbNs.doc("site/config").set(d).then(function(){cfg=Object.assign(JSON.parse(JSON.stringify(DEF)),d);render();msg("saved ✓")}).catch(function(e){msg("couldn't save: "+((e&&e.message)||"not allowed"))})}
-document.body.classList.add("pre");
-(function(){var n=0,sp=document.getElementById("splash"),ld=document.getElementById("ld"),f=document.getElementById("lfill");
-var iv=setInterval(function(){n=Math.min(100,n+Math.ceil(Math.random()*7));ld.textContent=n<100?"pulling signal... "+n+"%":"signal locked";f.style.width=n+"%";if(n>=100){clearInterval(iv);sp.classList.add("ready")}},60)})();
-var entered=false;
-function enter(){if(entered)return;entered=true;if(cur===0&&loadedSrc){autoPending=false;au.play().catch(function(){})}var sp=document.getElementById("splash");sp.classList.add("leaving");
-setTimeout(function(){document.body.classList.remove("pre")},450);
-setTimeout(function(){sp.classList.add("hide")},800)}
-function openM(){document.getElementById("modal").classList.add("open")}
-function closeM(){document.getElementById("modal").classList.remove("open")}
-</script>
-</body>
-</html>
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
