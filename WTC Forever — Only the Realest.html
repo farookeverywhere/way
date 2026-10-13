@@ -6,15 +6,15 @@
   <title>WTC Forever — Only the Realest.</title>
   <style>
     :root {
-      --bg: #080808;
-      --panel: #121212;
+      --bg: #0a0a0a;
+      --panel: #111111;
       --panel-2: #171717;
       --text: #f3f3f1;
-      --muted: #a4a4a4;
-      --line: rgba(255,255,255,0.14);
-      --accent: #e6ff5b;
-      --accent-2: #9ce6ff;
-      --shadow: rgba(0,0,0,0.35);
+      --muted: #b1b1b1;
+      --line: rgba(255,255,255,0.17);
+      --accent: #ffffff;
+      --accent-2: #dcdcdc;
+      --shadow: rgba(0,0,0,0.55);
     }
 
     * { box-sizing: border-box; }
@@ -27,6 +27,27 @@
       color: var(--text);
       font-family: Arial, Helvetica, sans-serif;
       line-height: 1.5;
+      --mx: 50vw;
+      --my: 50vh;
+    }
+
+    .page {
+      position: relative;
+      isolation: isolate;
+    }
+
+    .page::before {
+      content: "";
+      position: fixed;
+      inset: -18% -12% -18% -12%;
+      background: radial-gradient(circle at var(--mx) var(--my), rgba(255,255,255,0.18), rgba(255,255,255,0.08) 12%, rgba(255,255,255,0.02) 24%, transparent 42%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page > * {
+      position: relative;
+      z-index: 1;
     }
 
     a { color: inherit; text-decoration: none; }
@@ -35,8 +56,7 @@
     .page {
       min-height: 100vh;
       background:
-        radial-gradient(circle at top, rgba(230,255,91,0.08), transparent 30%),
-        linear-gradient(180deg, #0a0a0a 0%, #080808 100%);
+        linear-gradient(180deg, #0b0b0b 0%, #080808 100%);
     }
 
     .container {
@@ -102,7 +122,7 @@
       max-width: 700px;
     }
 
-    h1 .accent { color: var(--accent); }
+    h1 .accent { color: var(--text); }
 
     .hero-copy {
       margin-top: 22px;
@@ -140,14 +160,14 @@
     }
 
     .button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #0c0c0c;
+      background: var(--text);
+      border-color: var(--text);
+      color: #080808;
       font-weight: 800;
     }
 
     .button.primary:hover {
-      filter: brightness(0.96);
+      filter: brightness(0.9);
     }
 
     section {
@@ -269,7 +289,7 @@
       position: absolute;
       inset: 0 auto 0 0;
       width: 0%;
-      background: var(--accent);
+      background: var(--text);
     }
 
     .join-box {
@@ -415,6 +435,65 @@
 
     .field-row input {
       flex: 1;
+    }
+
+    .artist-editor {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.015);
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+
+    .artist-editor .field-row {
+      margin-bottom: 10px;
+    }
+
+    .artist-details {
+      display: none;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      gap: 10px;
+    }
+
+    .artist-editor.expanded .artist-details {
+      display: grid;
+    }
+
+    .artist-details textarea {
+      min-height: 100px;
+      resize: vertical;
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 10px;
+    }
+
+    .artist-meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .artist-preview {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .artist-preview img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      background: #111;
     }
 
     .tiny-btn {
@@ -583,16 +662,44 @@
       tag: 'Only the realest.',
       join: 'dm farookeverywhere on discord',
       footer: 'No borders • no genre • just signal',
-      artists: ['Artist 01', 'Artist 02', 'Artist 03', 'Artist 04'],
+      artists: [
+        { name: 'Artist 01', role: 'Producer', pfp: '', description: 'Signal-first artist with sharp drums and clean movement.', link: '', accent: '' },
+        { name: 'Artist 02', role: 'Visual', pfp: '', description: 'Designs the mood and tone behind the network.', link: '', accent: '' },
+        { name: 'Artist 03', role: 'DJ', pfp: '', description: 'Cuts between raw energy and late-night clarity.', link: '', accent: '' },
+        { name: 'Artist 04', role: 'Creative', pfp: '', description: 'Builds the stories and live moments that travel far.', link: '', accent: '' }
+      ],
       tracks: ['Track One', 'Track Two', 'Track Three']
     };
+
+    const artistEditorExpanded = new Set();
+
+    function normalizeArtist(artist) {
+      if (typeof artist === 'string') {
+        return { name: artist, role: '', pfp: '', description: '', link: '', accent: '' };
+      }
+
+      return {
+        name: artist?.name || 'New artist',
+        role: artist?.role || '',
+        pfp: artist?.pfp || '',
+        description: artist?.description || '',
+        link: artist?.link || '',
+        accent: artist?.accent || ''
+      };
+    }
 
     function readConfig() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        return raw ? { ...defaultConfig, ...JSON.parse(raw) } : { ...defaultConfig };
+        const parsed = raw ? JSON.parse(raw) : {};
+        const merged = { ...defaultConfig, ...parsed };
+        merged.artists = (merged.artists || []).map(normalizeArtist);
+        return merged;
       } catch (error) {
-        return { ...defaultConfig };
+        return {
+          ...defaultConfig,
+          artists: defaultConfig.artists.map(normalizeArtist)
+        };
       }
     }
 
@@ -639,11 +746,21 @@
         return;
       }
 
-      artists.forEach((name) => {
+      artists.forEach((artist) => {
         const card = document.createElement('div');
         card.className = 'talent-card';
+
+        if (artist.pfp) {
+          const image = document.createElement('img');
+          image.src = artist.pfp;
+          image.alt = artist.name || 'Artist';
+          card.appendChild(image);
+        } else if (artist.accent) {
+          card.style.background = `linear-gradient(180deg, ${artist.accent}22, rgba(0,0,0,0.7))`;
+        }
+
         const label = document.createElement('span');
-        label.textContent = name;
+        label.textContent = artist.name || 'Artist';
         card.appendChild(label);
         talentGrid.appendChild(card);
       });
@@ -750,13 +867,17 @@
       artistsWrap.appendChild(artistsLabel);
 
       (config.artists || []).forEach((artist, index) => {
+        const artistBox = document.createElement('div');
+        artistBox.className = `artist-editor ${artistEditorExpanded.has(index) ? 'expanded' : ''}`;
+
         const row = document.createElement('div');
         row.className = 'field-row';
 
         const input = document.createElement('input');
-        input.value = artist;
+        input.value = artist.name || '';
+        input.placeholder = 'Artist name';
         input.addEventListener('input', (event) => {
-          config.artists[index] = event.target.value;
+          config.artists[index].name = event.target.value;
         });
 
         const removeBtn = document.createElement('button');
@@ -765,11 +886,82 @@
         removeBtn.className = 'tiny-btn delete';
         removeBtn.addEventListener('click', () => {
           config.artists.splice(index, 1);
+          artistEditorExpanded.delete(index);
           openAdmin();
         });
 
-        row.append(input, removeBtn);
-        artistsWrap.appendChild(row);
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.type = 'button';
+        showMoreBtn.className = 'tiny-btn';
+        showMoreBtn.textContent = artistEditorExpanded.has(index) ? 'show less' : 'show more';
+        showMoreBtn.addEventListener('click', () => {
+          if (artistEditorExpanded.has(index)) {
+            artistEditorExpanded.delete(index);
+          } else {
+            artistEditorExpanded.add(index);
+          }
+          openAdmin();
+        });
+
+        row.append(input, showMoreBtn, removeBtn);
+
+        const details = document.createElement('div');
+        details.className = 'artist-details';
+
+        const roleInput = document.createElement('input');
+        roleInput.value = artist.role || '';
+        roleInput.placeholder = 'Role';
+        roleInput.addEventListener('input', (event) => {
+          config.artists[index].role = event.target.value;
+        });
+
+        const linkInput = document.createElement('input');
+        linkInput.value = artist.link || '';
+        linkInput.placeholder = 'Link / social / site';
+        linkInput.addEventListener('input', (event) => {
+          config.artists[index].link = event.target.value;
+        });
+
+        const pfpInput = document.createElement('input');
+        pfpInput.value = artist.pfp || '';
+        pfpInput.placeholder = 'Profile image URL';
+        pfpInput.addEventListener('input', (event) => {
+          config.artists[index].pfp = event.target.value;
+        });
+
+        const accentInput = document.createElement('input');
+        accentInput.value = artist.accent || '';
+        accentInput.placeholder = 'Accent color (hex or css)';
+        accentInput.addEventListener('input', (event) => {
+          config.artists[index].accent = event.target.value;
+        });
+
+        const descriptionField = document.createElement('textarea');
+        descriptionField.value = artist.description || '';
+        descriptionField.placeholder = 'Artist description';
+        descriptionField.addEventListener('input', (event) => {
+          config.artists[index].description = event.target.value;
+        });
+
+        const detailGrid = document.createElement('div');
+        detailGrid.className = 'artist-meta-row';
+        detailGrid.append(roleInput, linkInput);
+
+        const preview = document.createElement('div');
+        preview.className = 'artist-preview';
+        if (artist.pfp) {
+          const img = document.createElement('img');
+          img.src = artist.pfp;
+          img.alt = artist.name || 'Artist';
+          preview.appendChild(img);
+        }
+        const previewText = document.createElement('span');
+        previewText.textContent = artist.name || 'Artist preview';
+        preview.appendChild(previewText);
+
+        details.append(detailGrid, pfpInput, accentInput, descriptionField, preview);
+        artistBox.append(row, details);
+        artistsWrap.appendChild(artistBox);
       });
 
       const addArtistBtn = document.createElement('button');
@@ -777,7 +969,8 @@
       addArtistBtn.className = 'tiny-btn';
       addArtistBtn.textContent = '+ add artist';
       addArtistBtn.addEventListener('click', () => {
-        config.artists.push('New artist');
+        config.artists.push({ name: 'New artist', role: '', pfp: '', description: '', link: '', accent: '' });
+        artistEditorExpanded.add(config.artists.length - 1);
         openAdmin();
       });
       artistsWrap.appendChild(addArtistBtn);
@@ -898,6 +1091,13 @@
     document.getElementById('closeModal').addEventListener('click', closeJoinModal);
     document.getElementById('closeAdmin').addEventListener('click', closeAdmin);
     document.getElementById('saveBtn').addEventListener('click', saveConfig);
+
+    document.addEventListener('pointermove', (event) => {
+      const x = event.clientX;
+      const y = event.clientY;
+      document.documentElement.style.setProperty('--mx', `${x}px`);
+      document.documentElement.style.setProperty('--my', `${y}px`);
+    });
 
     joinModal.addEventListener('click', (event) => {
       if (event.target === joinModal) closeJoinModal();
