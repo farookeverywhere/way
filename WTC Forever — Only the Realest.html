@@ -1131,6 +1131,9 @@
         audio.pause();
         audio.removeAttribute('src');
         audio.load();
+        nativeControls.hidden = true;
+        spotifyEmbed.hidden = true;
+        spotifyEmbed.removeAttribute('src');
         if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
         currentAudioObjectUrl = '';
         currentTimeEl.textContent = '0:00';
@@ -1149,7 +1152,7 @@
       audio.pause();
       spotifyEmbed.hidden = true;
       spotifyEmbed.removeAttribute('src');
-      nativeControls.hidden = false;
+      nativeControls.hidden = true;
       if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
       currentAudioObjectUrl = '';
       const spotifySrc = getSpotifyEmbedUrl(track.spotifyUrl || '');
@@ -1164,7 +1167,7 @@
         return;
       }
 
-      let src = track.src || `./assets/${encodeURIComponent(track.name.toLowerCase().replace(/\s+/g, '-'))}.mp3`;
+      let src = track.src || '';
       if (track.audioId) {
         try {
           const blob = await readTrackAudio(track.audioId);
@@ -1178,6 +1181,15 @@
         }
       }
       if (loadId !== currentTrackLoad) return;
+      if (!src) {
+        audio.removeAttribute('src');
+        audio.load();
+        nowPlayingEl.textContent = `${track.name} • add a Spotify link or audio file`;
+        updateProgressUI();
+        return;
+      }
+
+      nativeControls.hidden = false;
       audio.src = src;
       audio.load();
       updateProgressUI();
