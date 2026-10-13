@@ -537,6 +537,14 @@
       padding: 10px;
     }
 
+    .artist-details input[type="file"] {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      padding: 9px;
+    }
+
     .artist-meta-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -841,6 +849,9 @@
           const image = document.createElement('img');
           image.src = artist.pfp;
           image.alt = artist.name || 'Artist';
+          image.hidden = true;
+          image.addEventListener('load', () => { image.hidden = false; }, { once: true });
+          image.addEventListener('error', () => { image.remove(); }, { once: true });
           card.appendChild(image);
         } else if (artist.accent) {
           card.style.background = `linear-gradient(180deg, ${artist.accent}22, rgba(0,0,0,0.7))`;
@@ -1009,9 +1020,27 @@
           config.artists[index].link = event.target.value;
         });
 
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.setAttribute('aria-label', `Upload ${artist.name || 'artist'} profile image`);
+        fileInput.addEventListener('change', async (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+
+          try {
+            config.artists[index].pfp = await imageFileToDataUrl(file);
+            openAdmin();
+            adminStatus.textContent = 'image ready - save to keep';
+          } catch (error) {
+            adminStatus.textContent = error.message || 'could not load image';
+          }
+        });
+
         const pfpInput = document.createElement('input');
-        pfpInput.value = artist.pfp || '';
-        pfpInput.placeholder = 'Profile image URL';
+        const hasUploadedImage = (artist.pfp || '').startsWith('data:image/');
+        pfpInput.value = hasUploadedImage ? '' : (artist.pfp || '');
+        pfpInput.placeholder = hasUploadedImage ? 'Uploaded image selected' : 'Or paste profile image URL';
         pfpInput.addEventListener('input', (event) => {
           config.artists[index].pfp = event.target.value;
         });
@@ -1040,13 +1069,16 @@
           const img = document.createElement('img');
           img.src = artist.pfp;
           img.alt = artist.name || 'Artist';
+          img.hidden = true;
+          img.addEventListener('load', () => { img.hidden = false; }, { once: true });
+          img.addEventListener('error', () => { img.remove(); }, { once: true });
           preview.appendChild(img);
         }
         const previewText = document.createElement('span');
         previewText.textContent = artist.name || 'Artist preview';
         preview.appendChild(previewText);
 
-        details.append(detailGrid, pfpInput, accentInput, descriptionField, preview);
+        details.append(detailGrid, fileInput, pfpInput, accentInput, descriptionField, preview);
         artistBox.append(row, details);
         artistsWrap.appendChild(artistBox);
       });
@@ -1128,6 +1160,31 @@
       joinModal.classList.remove('open');
     }
 
+    async function imageFileToDataUrl(file) {
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Choose an image file');
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        throw new Error('Choose an image smaller than 15 MB');
+      }
+
+      const bitmap = await createImageBitmap(file);
+      const maxDimension = 720;
+      const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) {
+        bitmap.close();
+        throw new Error('Could not process image');
+      }
+
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      return canvas.toDataURL('image/jpeg', 0.82);
+    }
+
     function openArtistProfile(artist) {
       const image = document.getElementById('artistProfileImage');
       const role = document.getElementById('artistProfileRole');
@@ -1135,9 +1192,15 @@
       const description = document.getElementById('artistProfileDescription');
       const link = document.getElementById('artistProfileLink');
 
-      image.hidden = !artist.pfp;
-      image.src = artist.pfp || '';
+      image.hidden = true;
+      if (artist.pfp) {
+        image.src = artist.pfp;
+      } else {
+        image.removeAttribute('src');
+      }
       image.alt = artist.pfp ? `${artist.name || 'Artist'} profile` : '';
+      image.onload = () => { image.hidden = false; };
+      image.onerror = () => { image.hidden = true; };
       role.textContent = artist.role || 'Artist';
       name.textContent = artist.name || 'Artist';
       description.textContent = artist.description || '';
