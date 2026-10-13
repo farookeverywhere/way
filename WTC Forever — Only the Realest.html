@@ -325,6 +325,17 @@
       background: var(--text);
     }
 
+    .spotify-embed {
+      display: block;
+      width: 100%;
+      min-height: 152px;
+      border: 0;
+      border-radius: 8px;
+      background: #111;
+    }
+
+    .spotify-embed[hidden] { display: none; }
+
     .join-box {
       display: flex;
       justify-content: space-between;
@@ -771,7 +782,9 @@
 
             <select id="trackSelect" aria-label="Select a track"></select>
 
-            <div class="controls">
+            <iframe class="spotify-embed" id="spotifyEmbed" title="Spotify player" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen hidden></iframe>
+
+            <div class="controls" id="nativeControls">
               <button class="play-btn" id="playBtn" type="button" aria-label="Play or pause">▶</button>
               <span class="time" id="currentTime">0:00</span>
               <div class="progress" id="progressBar" aria-label="Track progress">
@@ -881,7 +894,8 @@
         id: track?.id || createTrackId(),
         name: track?.name || 'New track',
         src: track?.src || '',
-        audioId: track?.audioId || ''
+        audioId: track?.audioId || '',
+        spotifyUrl: track?.spotifyUrl || ''
       };
     }
 
@@ -986,6 +1000,8 @@
     let currentTrackLoad = 0;
 
     const trackSelect = document.getElementById('trackSelect');
+    const nativeControls = document.getElementById('nativeControls');
+    const spotifyEmbed = document.getElementById('spotifyEmbed');
     const playBtn = document.getElementById('playBtn');
     const progressBar = document.getElementById('progressBar');
     const progressFill = document.getElementById('progressFill');
@@ -1084,6 +1100,30 @@
       totalTimeEl.textContent = formatTime(total);
     }
 
+    function getSpotifyEmbedUrl(value) {
+      try {
+        let type = '';
+        let id = '';
+        const uriMatch = value.match(/^spotify:(track|album|playlist|episode):([A-Za-z0-9]{22})$/);
+        if (uriMatch) {
+          [, type, id] = uriMatch;
+        } else {
+          const url = new URL(value);
+          if (url.hostname !== 'open.spotify.com' && url.hostname !== 'play.spotify.com') return '';
+          const segments = url.pathname.split('/').filter(Boolean);
+          const typeIndex = segments.findIndex((segment) => ['track', 'album', 'playlist', 'episode'].includes(segment));
+          if (typeIndex < 0) return '';
+          type = segments[typeIndex];
+          id = segments[typeIndex + 1] || '';
+        }
+
+        if (!/^[A-Za-z0-9]{22}$/.test(id)) return '';
+        return `https://open.spotify.com/embed/${type}/${id}?utm_source=generator&autoplay=1`;
+      } catch (error) {
+        return '';
+      }
+    }
+
     async function loadCurrentTrack() {
       const tracks = config.tracks || [];
       const loadId = ++currentTrackLoad;
@@ -1107,8 +1147,23 @@
       nowPlayingEl.textContent = track.name;
 
       audio.pause();
+      spotifyEmbed.hidden = true;
+      spotifyEmbed.removeAttribute('src');
+      nativeControls.hidden = false;
       if (currentAudioObjectUrl) URL.revokeObjectURL(currentAudioObjectUrl);
       currentAudioObjectUrl = '';
+      const spotifySrc = getSpotifyEmbedUrl(track.spotifyUrl || '');
+      if (spotifySrc) {
+        audio.removeAttribute('src');
+        audio.load();
+        spotifyEmbed.title = `Spotify player for ${track.name}`;
+        spotifyEmbed.src = spotifySrc;
+        spotifyEmbed.hidden = false;
+        nativeControls.hidden = true;
+        updateProgressUI();
+        return;
+      }
+
       let src = track.src || `./assets/${encodeURIComponent(track.name.toLowerCase().replace(/\s+/g, '-'))}.mp3`;
       if (track.audioId) {
         try {
@@ -1130,6 +1185,7 @@
 
     function attemptEntryAutoplay() {
       if (!config.autoplay || !config.tracks.length) return;
+      if (getSpotifyEmbedUrl(config.tracks[currentTrack]?.spotifyUrl || '')) return;
       audio.play().catch((error) => {
         if (error.name === 'NotAllowedError') {
           nowPlayingEl.textContent = `${config.tracks[currentTrack].name} • tap play to start`;
@@ -1424,7 +1480,16 @@
           config.tracks[index].src = event.target.value;
         });
 
-        details.append(fileInput, sourceInput);
+        const spotifyInput = document.createElement('input');
+        spotifyInput.type = 'url';
+        spotifyInput.value = track.spotifyUrl || '';
+        spotifyInput.placeholder = 'Spotify song link (open.spotify.com/track/...)';
+        spotifyInput.setAttribute('aria-label', `Spotify link for ${track.name}`);
+        spotifyInput.addEventListener('input', (event) => {
+          config.tracks[index].spotifyUrl = event.target.value.trim();
+        });
+
+        details.append(fileInput, sourceInput, spotifyInput);
         trackBox.append(row, details);
         tracksWrap.appendChild(trackBox);
       });
@@ -1454,6 +1519,7 @@
       writeConfig(config);
       render();
       adminStatus.textContent = 'saved locally ✓';
+      loadCurrentTrack().then(attemptEntryAutoplay);
     }
 
     function openJoinModal() {
