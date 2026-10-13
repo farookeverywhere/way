@@ -2,13 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=/" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="canonical" href="/" />
-  <title>WTC Forever — Only the Realest</title>
-  <script>window.location.replace('/');</script>
+  <title>Way Too Clean</title>
 </head>
 <body>
-  <p><a href="/">Continue to Way Too Clean</a></p>
+  <p id="loadStatus">Loading Way Too Clean...</p>
+  <p><a href="/">Open Way Too Clean</a></p>
+  <script>
+    window.history.replaceState(null, document.title, `/${window.location.hash}`);
+    fetch(`/index.html?root-refresh=${Date.now()}`, { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error('Could not load the home page');
+        return response.text();
+      })
+      .then((page) => {
+        document.open();
+        document.write(page);
+        document.close();
+      })
+      .catch(() => {
+        document.getElementById('loadStatus').textContent = 'The site could not load. Use the link above to open it.';
+      });
+  </script>
 </body>
 </html>
